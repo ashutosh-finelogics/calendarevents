@@ -1,0 +1,51 @@
+<div class="content_body">
+  <div class="row mb-3">
+    <div class="col-12">
+      <h4>Employee Calendar</h4>
+      <% if (message) { %><div class="alert alert-info"><%= message %></div><% } %>
+    </div>
+  </div>
+  <div class="row mb-4">
+    <div class="col-md-4 mb-2">
+      <label for="employeeSelect">Employee (indiaontrack.in)</label>
+      <select id="employeeSelect" class="form-control">
+        <option value="">-- Select employee --</option>
+      </select>
+    </div>
+    <div class="col-md-3 mb-2">
+      <label for="dateSelect">Date</label>
+      <input type="text" id="dateSelect" class="form-control" placeholder="YYYY-MM-DD" readonly>
+    </div>
+    <div class="col-md-4 mb-2 d-flex align-items-end">
+      <div class="btn-group">
+        <button type="button" class="btn btn-outline-secondary" id="prevDayBtn">← Previous day</button>
+        <button type="button" class="btn btn-outline-secondary" id="nextDayBtn">Next day →</button>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-12">
+      <div id="eventsPlaceholder" class="text-muted py-4">
+        Select an employee and a date to view events.
+      </div>
+      <div id="eventsLoading" class="py-4" style="display:none;">Loading events…</div>
+      <div id="eventsError" class="alert alert-danger" style="display:none;"></div>
+      <div id="eventsContainer" style="display:none;">
+        <h5 class="mb-3">Events for <span id="eventsDateLabel"></span></h5>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead class="thead-light">
+              <tr>
+                <th style="width:120px;">Time</th>
+                <th>Event</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

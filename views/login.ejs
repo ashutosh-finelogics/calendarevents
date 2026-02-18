@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <style>
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f6f8; }
+    .login-card { max-width: 400px; width: 100%; }
+    .error { color: #b91c1c; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div class="login-card card shadow-sm p-4">
+    <h4 class="mb-3">Calendar Tracking</h4>
+    <p class="text-muted small mb-3">Sign in to view employee calendars.</p>
+    <div id="loginError" class="error mb-2" style="display:none;"></div>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" class="form-control" id="email" name="email" required value="developes@indiaontrack.in" placeholder="developes@indiaontrack.in">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required placeholder="Any password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+    </form>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+    var base_url = '<%= base_url %>';
+    $('#loginForm').on('submit', function(e) {
+      e.preventDefault();
+      $('#loginError').hide().text('');
+      $.ajax({
+        url: base_url + '/login',
+        type: 'POST',
+        data: { email: $('#email').val(), password: $('#password').val() },
+        dataType: 'json',
+        success: function(res) {
+          if (res && res.status) {
+            window.location.href = base_url + '/admin';
+          } else {
+            $('#loginError').text(res && res.message ? res.message : 'Login failed').show();
+          }
+        },
+        error: function(xhr) {
+          var msg = 'Network error. Try again.';
+          if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+          else if (xhr.responseText) { try { var r = JSON.parse(xhr.responseText); if (r.message) msg = r.message; } catch(e) {} }
+          $('#loginError').text(msg).show();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

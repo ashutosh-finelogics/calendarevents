@@ -1,0 +1,29 @@
+{
+  "name": "calendar-tracking",
+  "version": "1.0.0",
+  "description": "Admin calendar tracking - view employee events (indiaontrack.in), Sarvesh style",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
+    "connect-flash": "^0.1.1",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "googleapis": "^128.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "moment": "^2.29.4",
+    "mysql2": "^3.6.5",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
