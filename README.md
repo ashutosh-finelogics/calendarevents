@@ -1,3 +1,293 @@
+## Calendar Tracking - Developer Guide
+
+This project is a small admin web app to see Google Calendar activity for a fixed list of employees, day by day and month by month.
+
+The design is intentionally simple so that it is easy to maintain, even if you do not remember all details later.
+
+---
+
+### 1. High level architecture
+
+- **Tech stack**
+  - Backend: Node.js, Express
+  - Views: EJS templates + Bootstrap 4 + jQuery
+  - Google Calendar access: Service account with domain-wide delegation
+
+- **Request flow**
+  1. Browser → `/admin/...` route
+  2. `adminTokenCheck` middleware checks session + tokens, refreshes via API if needed
+  3. Admin controller (in `controllers/admin/*`) renders EJS and calls `apiService`
+  4. `apiService` calls internal REST API under `/api/v1/...` with Bearer token
+  5. API controllers (in `api/v1/controllers/*`) call `calendarService`
+  6. `calendarService` talks to Google Calendar API
+
+- **No database for users**
+  - Configured employees are read from `config/users.xml`
+  - Time-slot configuration for the list view is read from `config/slot-config.xml`
+
+---
+
+### 2. Key folders and files
+
+- `app.js`
+  - Express app entrypoint
+  - Mounts:
+    - `/` → login/logout routes
+    - `/admin` → admin dashboard/calendar (protected by `adminTokenCheck`)
+    - `/api` → API routes
+
+- `controllers/authentication.js`
+  - Handles login form and POST `/login`
+  - Stores `session.is_login`, `session.access_token`, `session.refresh_token`
+
+- `middleware/adminTokenCheck.js`
+  - Runs for **all** `/admin/*` requests
+  - If not logged in or tokens invalid → destroys session and redirects to `/` (login)
+  - If tokens are close to expiry, calls `/api/v1/auth/validate-tokens` and refreshes them
+
+- `controllers/admin/calendar.js`
+  - `calendarPage` – renders main list view
+    - Adds `page.js` to the layout
+    - Passes:
+      - `slotConfig` and `slotConfigJson` from `config/slot-config.xml`
+  - `detailPage` – renders single-user month view
+
+- `routes/admin/calendar.js`
+  - `/admin/calendar/page` – list view
+  - `/admin/calendar/detail` – month view
+  - `/admin/calendar/events-by-date` – AJAX for list page
+  - `/admin/calendar/events-month` – AJAX for month page
+
+- `api/v1/services/calendarService.js`
+  - Reads `config/users.xml`
+  - Wraps Google Calendar calls:
+    - Events for one day
+    - Events for one month
+    - Events for all configured users on a date
+
+- `api/v1/controllers/calendarController.js`
+  - Simple JSON controllers around `calendarService`
+
+- `views/admin.ejs`
+  - Main admin layout
+  - Injects:
+    - Bootstrap & jQuery
+    - Page‑specific JS/CSS via `templateExtras*`
+  - Contains `#globalLoader` full-screen spinner with `showGlobalLoader()` / `hideGlobalLoader()`
+
+- `views/admin/calendar/page.ejs`
+  - Main list page (configured users)
+  - Uses:
+    - `slotConfig` and `slotConfigJson` to build time-slot headers and drive JS
+  - Contains **two views** (toggled with buttons):
+    - **Time slots view** – per-hour grid
+    - **Busy / free view** – busy events + free slots per person
+
+- `views/admin/calendar/detail.ejs`
+  - Single user month view grid (Google Calendar style)
+
+- `public/javascripts/admin/calendar/page.js`
+  - JS for list page
+  - Handles:
+    - Date selector + prev/next day
+    - AJAX `/admin/calendar/events-by-date?date=YYYY-MM-DD`
+    - Building:
+      - **Time slot grid** (rows = users, columns = configured slots)
+      - **Busy / free table**
+    - Toggle between the two views
+
+- `public/javascripts/admin/calendar/detail.js`
+  - JS for month view
+  - Prev/next month, AJAX `/admin/calendar/events-month`
+
+---
+
+### 3. Configuration files
+
+#### 3.1 `config/users.xml`
+
+Employees are configured here. Example:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<users>
+  <user>
+    <email>ashisdas@indiaontrack.in</email>
+    <name>Ashis Das</name>
+  </user>
+  <user>
+    <email>sarveshchauhan@indiaontrack.in</email>
+    <name>Sarvesh Chauhan</name>
+  </user>
+</users>
+```
+
+- Parsed by `calendarService.getConfiguredUsers()`
+- Old format `<user>email@domain.com</user>` still works (name will be `null`)
+
+#### 3.2 `config/slot-config.xml`
+
+Defines the time slots for the **list page**:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<slots>
+  <starttime>00:00</starttime>
+  <endtime>23:59</endtime>
+  <slotdurationinminutes>60</slotdurationinminutes>
+</slots>
+```
+
+- `starttime` – first time of day (00:00 = 12:00 am)
+- `endtime` – last time of day (23:59 is treated as end‑of‑day 24:00)
+- `slotdurationinminutes` – width of each slot (e.g. 30 → 00:00–00:30, 00:30–01:00, ...)
+
+Used by:
+
+- `controllers/admin/calendar.js` → `getSlotConfig()`:
+  - Parses XML
+  - Builds an array:
+    - `{ startMinutes, endMinutes, label }`
+- `page.ejs`:
+  - Builds table header columns using `slot.label`
+  - Injects `window.CALENDAR_TIME_SLOTS` for JS
+- `page.js`:
+  - Uses `TIME_SLOTS` to:
+    - Populate per-slot cells in the time‑slot grid
+    - Decide which slots are **free** in the busy/free view
+
+#### 3.3 `calendaraccount.json`
+
+Service account key for Google Calendar:
+
+- Must be in project root
+- Used by `calendarService.getAuth()`
+- Requires Workspace **domain-wide delegation** to:
+  - `https://www.googleapis.com/auth/calendar`
+
+---
+
+### 4. List page – views and behaviour
+
+URL: `/admin/calendar/page`
+
+#### 4.1 Time slots view (default)
+
+- Top controls:
+  - Date picker (Bootstrap datepicker) – read-only input with popup
+  - **Previous day / Next day** buttons
+  - **View toggle**:
+    - `Time slots` (active) | `Busy / free`
+
+- Table layout:
+  - Sticky left columns:
+    - `Sr. No`
+    - `Employee Name`
+    - `Email` (link to detail page)
+  - Right side:
+    - One column per configured slot from `slot-config.xml`
+    - Example header labels: `00:00–01:00`, `01:00–02:00`, ...
+  - Rows:
+    - One row per configured user
+    - Each time-slot cell:
+      - Shows all events that overlap that slot (including all‑day)
+      - Format: `HH:MM – HH:MM Title`
+
+- Horizontal scroll:
+  - Table is wider than viewport
+  - Name/email columns stay fixed on the left
+  - Time slots scroll horizontally
+
+#### 4.2 Busy / free view (toggle)
+
+- Activated by clicking `Busy / free` button (JS toggles visibility)
+- Table layout:
+  - Sticky left columns:
+    - `Sr. No`
+    - `Employee Name`
+    - `Email`
+  - Right side:
+    - `Busy events`
+      - All events for that user on the selected date
+      - One per line:
+        - `09:30 am – 10:30 am Meeting with developers – created by ashutosh`
+    - `Free slots`
+      - List of slot labels where the user has **no** events
+      - Based on `TIME_SLOTS` from `slot-config.xml`
+      - Example:
+        - `10:30 – 11:00, 11:00 – 12:00, ...`
+      - If completely busy → `No free slots`
+
+---
+
+### 5. Detail page – month view
+
+URL: `/admin/calendar/detail?email=...`
+
+- Month grid (7 columns by 6 weeks)
+- Buttons:
+  - Previous month
+  - Next month
+  - Month/year dropdowns
+- Each day cell shows all events for that day
+- Data loaded via `/admin/calendar/events-month?email=...&year=YYYY&month=M`
+
+---
+
+### 6. How to run locally
+
+1. **Install Node.js** (LTS recommended).
+2. **Install dependencies**:
+
+   ```bash
+   npm install
+   ```
+
+3. **Create config files**:
+   - `config/users.xml` – see examples above
+   - `config/slot-config.xml` – or copy the default shown above
+   - `calendaraccount.json` – Google service account key with domain-wide delegation
+
+4. **Environment (.env or config/keys.js)**:
+   - `SESSION_SECRET`
+   - `ADMIN_API_URL` / `APP_API_URL` (for token validation / login API)
+
+5. **Start the app**:
+
+   ```bash
+   npm start
+   ```
+
+6. **Open in browser**:
+   - Go to `http://localhost:PORT/` (see your `app.js` / start script for port)
+   - Login as the allowed admin user
+   - Use `/admin/calendar/page` and `/admin/calendar/detail`
+
+---
+
+### 7. Maintenance tips (for “low memory” days)
+
+- If the **list page layout** looks wrong:
+  - Check `config/slot-config.xml` for valid times and slot duration
+  - Verify `window.CALENDAR_TIME_SLOTS` exists in page source (view‑source)
+
+- If a user is **missing** from both views:
+  - Check `config/users.xml` for proper `<user><email>..</email><name>..</name></user>` structure
+
+- If you get **401 / login issues**:
+  - Remember: all `/admin/*` routes require login and valid tokens
+  - `adminTokenCheck` will redirect to `/` (login) if session or tokens are invalid
+
+- If **Google API** fails:
+  - Confirm `calendaraccount.json` exists and has correct permissions
+  - Make sure the service account is delegated to your Workspace domain
+
+- To **change time resolution** (e.g. from 60‑minute to 30‑minute slots):
+  - Only edit `slotdurationinminutes` in `config/slot-config.xml`
+  - Both the grid columns and the “free slots” text will follow automatically
+
+Keep this README open when making changes; most questions about “where is X?” or “why is Y not showing?” are answered in sections 2–4 above.
+
 # Calendar Tracking – Workspace Integration & Project Guide
 
 This document covers (1) **Google Workspace integration** using Service Account Domain-Wide Delegation, including troubleshooting when Google Cloud blocks key creation or access, and (2) **project architecture and code flow** for the Calendar Tracking application.

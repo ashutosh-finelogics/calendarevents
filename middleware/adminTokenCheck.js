@@ -1,5 +1,6 @@
 /**
  * Admin Token Check - validates session and tokens for all /admin/* routes.
+ * Login is mandatory: if not logged in or tokens invalid, redirects to / (login page).
  * Calls API validate-tokens to refresh if needed.
  */
 

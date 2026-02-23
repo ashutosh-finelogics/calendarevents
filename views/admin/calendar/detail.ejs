@@ -1,0 +1,63 @@
+<div class="content_body">
+  <input type="hidden" id="detail_email" value="<%= userEmail %>">
+  <div class="row mb-3">
+    <div class="col-12">
+      <h4>Month View</h4>
+      <p class="text-muted small mb-0"><strong id="detailUserEmail"><%= userEmail %></strong></p>
+      <a href="#" id="backToListLink" class="small">← Back to calendar list</a>
+    </div>
+  </div>
+  <div class="row mb-3 align-items-center">
+    <div class="col-12">
+      <div class="btn-group mr-2">
+        <button type="button" class="btn btn-outline-secondary" id="prevMonthBtn">← Previous</button>
+        <span class="btn btn-outline-primary disabled" id="monthLabel">Month</span>
+        <button type="button" class="btn btn-outline-secondary" id="nextMonthBtn">Next →</button>
+      </div>
+      <label class="ml-3 mr-1 mb-0">Month</label>
+      <select id="detailMonthSelect" class="form-control form-control-sm d-inline-block w-auto mx-1">
+        <option value="1">January</option>
+        <option value="2">February</option>
+        <option value="3">March</option>
+        <option value="4">April</option>
+        <option value="5">May</option>
+        <option value="6">June</option>
+        <option value="7">July</option>
+        <option value="8">August</option>
+        <option value="9">September</option>
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+      </select>
+      <label class="ml-2 mr-1 mb-0">Year</label>
+      <select id="detailYearSelect" class="form-control form-control-sm d-inline-block w-auto mx-1">
+        <% var y = new Date().getFullYear(); for (var i = y - 2; i <= y + 2; i++) { %>
+        <option value="<%= i %>" <%= i === y ? 'selected' : '' %>><%= i %></option>
+        <% } %>
+      </select>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-12">
+      <div id="monthPlaceholder" class="text-muted py-5 text-center" style="display:none;">
+        <div class="spinner-border text-primary" role="status"><span class="sr-only">Loading...</span></div>
+        <p class="mt-2 mb-0">Loading calendar…</p>
+      </div>
+      <div id="monthError" class="alert alert-danger" style="display:none;"></div>
+      <div id="monthContainer" style="display:none;">
+        <div id="calendarGrid" class="calendar-month-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+  .calendar-month-grid { border: 1px solid #dee2e6; border-radius: 4px; overflow: hidden; }
+  .calendar-month-grid table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+  .calendar-month-grid th { background: #f8f9fa; padding: 8px 4px; font-size: 0.8rem; text-align: center; border: 1px solid #dee2e6; }
+  .calendar-month-grid td { vertical-align: top; padding: 4px; border: 1px solid #dee2e6; min-height: 90px; height: 100px; font-size: 0.85rem; }
+  .calendar-month-grid td.empty { background: #f8f9fa; }
+  .calendar-month-grid .day-num { font-weight: 600; margin-bottom: 4px; color: #495057; }
+  .calendar-month-grid .day-events { list-style: none; padding: 0; margin: 0; }
+  .calendar-month-grid .day-events li { padding: 2px 4px; margin-bottom: 2px; background: #e7f1ff; border-left: 3px solid #0d6efd; border-radius: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; }
+  .calendar-month-grid .day-events li.all-day { background: #d4edda; border-left-color: #28a745; }
+</style>

@@ -1,15 +1,23 @@
 /**
- * Calendar page - employee select, date picker, events list, prev/next day.
- * AJAX to web routes only: /admin/calendar/employees, /admin/calendar/events
+ * Main calendar page: configured users (from XML) with time-wise events for selected date.
+ * Scrollable list. Click user email to open detail (month view).
  */
 (function() {
-  if ($('#employeeSelect').length === 0) return;
+  if ($('#dateSelect').length === 0) return;
 
   var baseUrl = $('#base_url').val() || '';
 
-  function getSelectedEmail() {
-    return $('#employeeSelect').val() || '';
-  }
+  // Time slots (start/end minutes from midnight) loaded from config/slot-config.xml via window.CALENDAR_TIME_SLOTS.
+  // Fallback to 00:00–23:59 with 60-minute slots if not defined.
+  var TIME_SLOTS = (window.CALENDAR_TIME_SLOTS && window.CALENDAR_TIME_SLOTS.length)
+    ? window.CALENDAR_TIME_SLOTS
+    : (function() {
+        var slots = [];
+        for (var m = 0; m < 24 * 60; m += 60) {
+          slots.push({ startMinutes: m, endMinutes: Math.min(m + 60, 24 * 60) });
+        }
+        return slots;
+      })();
 
   function getSelectedDate() {
     var val = $('#dateSelect').val() || '';
@@ -19,7 +27,9 @@
 
   function setSelectedDate(yyyyMmDd) {
     $('#dateSelect').val(yyyyMmDd);
-    $('#dateSelect').datepicker('setDate', yyyyMmDd);
+    try {
+      $('#dateSelect').datepicker('setDate', yyyyMmDd);
+    } catch (e) {}
   }
 
   function formatDateLabel(str) {
@@ -37,32 +47,90 @@
     } catch (e) { return str; }
   }
 
-  function loadEmployees() {
-    alert(baseUrl + '/admin/calendar/employees');
-    $.ajax({
-    
-      url: baseUrl + '/admin/calendar/employees',
-      type: 'GET',
-      success: function(res) {
-        if (res.status !== 'success' || !res.data) return;
-        var sel = $('#employeeSelect');
-        sel.find('option:not(:first)').remove();
-        res.data.forEach(function(emp) {
-          sel.append($('<option></option>').attr('value', emp.email).text(emp.name ? emp.name + ' (' + emp.email + ')' : emp.email));
-        });
-      },
-      error: function() {
-        $('#eventsError').text('Failed to load employees.').show();
-      }
-    });
+  function eventOverlapsSlot(ev, slot) {
+    if (!ev) return false;
+    if (ev.allDay) return true;
+    if (!ev.start || !ev.end) return false;
+    try {
+      var s = new Date(ev.start);
+      var e = new Date(ev.end);
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) return false;
+      var startMin = s.getHours() * 60 + s.getMinutes();
+      var endMin = e.getHours() * 60 + e.getMinutes();
+      var slotStart = slot.startMinutes;
+      var slotEnd = slot.endMinutes;
+      return startMin < slotEnd && endMin > slotStart;
+    } catch (err) {
+      return false;
+    }
   }
 
-  function loadEvents() {
-    var email = getSelectedEmail();
+  function formatMinutesLabel(mins) {
+    if (typeof mins !== 'number') return '';
+    if (mins < 0) mins = 0;
+    if (mins > 24 * 60) mins = 24 * 60;
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    if (h === 24) h = 0;
+    var suffix = h >= 12 ? 'pm' : 'am';
+    var displayHour = h % 12;
+    if (displayHour === 0) displayHour = 12;
+    var mm = String(m).padStart(2, '0');
+    return displayHour + ':' + mm + ' ' + suffix;
+  }
+
+  function buildBusyAndFree(events) {
+    var busyLines = [];
+    var intervals = [];
+
+    (events || []).forEach(function(ev) {
+      if (!ev) return;
+      var timeStr;
+      if (ev.allDay) {
+        timeStr = 'All day';
+        intervals.push({ start: 0, end: 24 * 60 });
+      } else if (ev.start && ev.end) {
+        timeStr = formatTime(ev.start) + ' – ' + formatTime(ev.end);
+        try {
+          var s = new Date(ev.start);
+          var e = new Date(ev.end);
+          if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+            var startMin = s.getHours() * 60 + s.getMinutes();
+            var endMin = e.getHours() * 60 + e.getMinutes();
+            intervals.push({ start: startMin, end: endMin });
+          }
+        } catch (e) {}
+      } else {
+        timeStr = '';
+      }
+      var creator = ev.creator ? ('created by ' + ev.creator) : '';
+      var label = (ev.summary || '(No title)');
+      busyLines.push((timeStr ? (timeStr + ' ') : '') + label + (creator ? (' – ' + creator) : ''));
+    });
+
+    // Free slots: based on TIME_SLOTS where no event overlaps.
+    var freeLabels = [];
+    TIME_SLOTS.forEach(function(slot) {
+      var hasBusy = (events || []).some(function(ev) { return eventOverlapsSlot(ev, slot); });
+      if (!hasBusy) {
+        if (slot.label) {
+          freeLabels.push(slot.label);
+        } else {
+          freeLabels.push(formatMinutesLabel(slot.startMinutes) + ' – ' + formatMinutesLabel(slot.endMinutes));
+        }
+      }
+    });
+
+    return {
+      busyText: busyLines.length ? busyLines.join('<br>') : 'No events',
+      freeText: freeLabels.length ? freeLabels.join(', ') : 'No free slots'
+    };
+  }
+
+  function loadEventsForDate() {
     var date = getSelectedDate();
-    if (!email || !date) {
+    if (!date) {
       $('#eventsPlaceholder').show();
-      $('#eventsLoading').hide();
       $('#eventsContainer').hide();
       $('#eventsError').hide();
       return;
@@ -71,44 +139,102 @@
     $('#eventsLoading').show();
     $('#eventsContainer').hide();
     $('#eventsError').hide();
+    if (typeof window.showGlobalLoader === 'function') window.showGlobalLoader();
 
     $.ajax({
-      url: baseUrl + '/admin/calendar/events',
+      url: baseUrl + '/admin/calendar/events-by-date',
       type: 'GET',
-      data: { email: email, date: date },
-      success: function(res) {
+      data: { date: date },
+      dataType: 'json',
+      complete: function() {
         $('#eventsLoading').hide();
+        if (typeof window.hideGlobalLoader === 'function') window.hideGlobalLoader();
+      },
+      success: function(res) {
+        if (typeof window.hideGlobalLoader === 'function') window.hideGlobalLoader();
         if (res.status !== 'success') {
           $('#eventsError').text(res.message || 'Failed to load events').show();
           return;
         }
         $('#eventsError').hide();
-        var events = res.data || [];
+        var list = res.data || [];
         $('#eventsDateLabel').text(formatDateLabel(date));
         var tbody = $('#eventsTableBody');
+        var summaryBody = $('#summaryTableBody');
         tbody.empty();
-        if (events.length === 0) {
-          tbody.append('<tr><td colspan="3" class="text-muted">No events for this day.</td></tr>');
+        summaryBody.empty();
+
+        var colCount = 3 + TIME_SLOTS.length; // Sr No + Name + Email + slots
+
+        if (list.length === 0) {
+          tbody.append('<tr><td colspan="' + colCount + '" class="text-muted">No configured users in config/users.xml.</td></tr>');
         } else {
-          events.forEach(function(ev) {
-            var startTime = formatTime(ev.start);
-            var endTime = formatTime(ev.end);
-            var timeStr = ev.allDay ? 'All day' : (startTime + ' – ' + endTime);
-            var details = [];
-            if (ev.location) details.push('Location: ' + ev.location);
-            if (ev.creator) details.push('Creator: ' + ev.creator);
-            if (ev.description) details.push(ev.description);
-            var detailsHtml = details.length ? details.join('<br>') : '—';
-            tbody.append(
-              '<tr><td>' + timeStr + '</td><td>' + (ev.summary || '(No title)') + '</td><td>' + detailsHtml + '</td></tr>'
-            );
+          list.forEach(function(item, index) {
+            var email = item.email || '';
+            var name = item.name || '';
+            var events = item.events || [];
+            var error = item.error;
+
+            var rowHtml = '<tr>';
+            rowHtml += '<td class="calendar-col-sr">' + (index + 1) + '</td>';
+            rowHtml += '<td class="calendar-col-name">' + (name || '—') + '</td>';
+
+            if (email) {
+              rowHtml += '<td class="calendar-col-email"><a href="' + baseUrl + '/admin/calendar/detail?email=' + encodeURIComponent(email) + '">' + email + '</a></td>';
+            } else {
+              rowHtml += '<td class="calendar-col-email">—</td>';
+            }
+
+            if (error) {
+              rowHtml += '<td colspan="' + TIME_SLOTS.length + '" class="text-danger">' + error + '</td>';
+              rowHtml += '</tr>';
+              tbody.append(rowHtml);
+
+              var summaryRow = '<tr>';
+              summaryRow += '<td class="calendar-col-sr">' + (index + 1) + '</td>';
+              summaryRow += '<td class="calendar-col-name">' + (name || '—') + '</td>';
+              summaryRow += '<td class="calendar-col-email">' + (email || '—') + '</td>';
+              summaryRow += '<td colspan="2" class="text-danger">' + error + '</td>';
+              summaryRow += '</tr>';
+              summaryBody.append(summaryRow);
+              return;
+            }
+
+            TIME_SLOTS.forEach(function(slot) {
+              var slotEvents = [];
+              events.forEach(function(ev) {
+                if (eventOverlapsSlot(ev, slot)) {
+                  var timeStr = ev.allDay ? 'All day' : (formatTime(ev.start) + ' – ' + formatTime(ev.end));
+                  var label = (ev.summary || '(No title)');
+                  slotEvents.push(timeStr + ' ' + label);
+                }
+              });
+              if (slotEvents.length === 0) {
+                rowHtml += '<td></td>';
+              } else {
+                rowHtml += '<td>' + slotEvents.join('<br>') + '</td>';
+              }
+            });
+
+            rowHtml += '</tr>';
+            tbody.append(rowHtml);
+
+            var bf = buildBusyAndFree(events);
+            var summaryRowOk = '<tr>';
+            summaryRowOk += '<td class="calendar-col-sr">' + (index + 1) + '</td>';
+            summaryRowOk += '<td class="calendar-col-name">' + (name || '—') + '</td>';
+            summaryRowOk += '<td class="calendar-col-email">' + (email || '—') + '</td>';
+            summaryRowOk += '<td>' + bf.busyText + '</td>';
+            summaryRowOk += '<td>' + bf.freeText + '</td>';
+            summaryRowOk += '</tr>';
+            summaryBody.append(summaryRowOk);
           });
         }
         $('#eventsContainer').show();
       },
       error: function(xhr) {
-        $('#eventsLoading').hide();
-        $('#eventsError').text(xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Failed to load events').show();
+        var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Failed to load events';
+        $('#eventsError').text(msg).show();
       }
     });
   }
@@ -120,7 +246,7 @@
     date.setDate(date.getDate() - 1);
     var str = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
     setSelectedDate(str);
-    loadEvents();
+    loadEventsForDate();
   }
 
   function goNextDay() {
@@ -130,31 +256,48 @@
     date.setDate(date.getDate() + 1);
     var str = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
     setSelectedDate(str);
-    loadEvents();
+    loadEventsForDate();
   }
-
-  $('#employeeSelect').on('change', function() {
-    if (getSelectedDate()) loadEvents();
-  });
 
   $('#dateSelect').datepicker({
     format: 'yyyy-mm-dd',
     autoclose: true,
     todayHighlight: true
-  }).on('changeDate', function() {
+  });
+
+  $('#dateSelect').on('changeDate', function() {
     var d = $(this).datepicker('getDate');
     if (d) {
       var str = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      if (getSelectedEmail()) loadEvents();
+      $('#dateSelect').val(str);
+      loadEventsForDate();
     }
+  });
+
+  $('#dateSelect').on('change', function() {
+    var str = $('#dateSelect').val() || '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) loadEventsForDate();
   });
 
   $('#prevDayBtn').on('click', goPrevDay);
   $('#nextDayBtn').on('click', goNextDay);
 
+  $('#viewSlotsBtn').on('click', function() {
+    $('#viewSlotsBtn').addClass('btn-primary').removeClass('btn-outline-secondary');
+    $('#viewSummaryBtn').removeClass('btn-primary').addClass('btn-outline-secondary');
+    $('#slotView').show();
+    $('#summaryView').hide();
+  });
+
+  $('#viewSummaryBtn').on('click', function() {
+    $('#viewSummaryBtn').addClass('btn-primary').removeClass('btn-outline-secondary');
+    $('#viewSlotsBtn').removeClass('btn-primary').addClass('btn-outline-secondary');
+    $('#slotView').hide();
+    $('#summaryView').show();
+  });
+
   var today = new Date();
   var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
   setSelectedDate(todayStr);
-
-  loadEmployees();
+  loadEventsForDate();
 })();

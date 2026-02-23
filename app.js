@@ -31,8 +31,9 @@ app.use(session({
 app.use(flash());
 
 app.use('/api', apiRoutes);
-app.use('/', indexRouter);
+app.use('/', indexRouter);  // GET / = login page; POST /login, GET /logout
 
+// All /admin/* require login; unauthenticated requests redirect to / (login)
 app.use('/admin', adminTokenCheck);
 app.use('/admin', adminRouter);
 app.use('/admin/calendar', calendarRouter);
