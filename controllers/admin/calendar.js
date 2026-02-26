@@ -75,8 +75,9 @@ exports.calendarPage = async (req, res) => {
   const protocol = await getProtocol(req);
   const base_url = protocol + '://' + req.get('host');
   const js = templateExtrasJS();
-  js.page.push('/javascripts/admin/calendar/page.js');
-   const slotConfig = getSlotConfig();
+  // Cache-busted JS so mobile devices pick up latest scripts
+  js.page.push('/javascripts/admin/calendar/page.js?v=2');
+  const slotConfig = getSlotConfig();
   const viewData = {
     path: 'admin/calendar/page',
     css: templateExtrasCss(),
@@ -99,7 +100,8 @@ exports.detailPage = async (req, res) => {
   const protocol = await getProtocol(req);
   const base_url = protocol + '://' + req.get('host');
   const js = templateExtrasJS();
-  js.page.push('/javascripts/admin/calendar/detail.js');
+  // Cache-busted JS so mobile devices pick up latest scripts
+  js.page.push('/javascripts/admin/calendar/detail.js?v=2');
   const viewData = {
     path: 'admin/calendar/detail',
     css: templateExtrasCss(),

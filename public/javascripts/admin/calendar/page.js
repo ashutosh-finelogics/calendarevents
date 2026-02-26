@@ -161,13 +161,16 @@
         $('#eventsDateLabel').text(formatDateLabel(date));
         var tbody = $('#eventsTableBody');
         var summaryBody = $('#summaryTableBody');
+        var mobileList = $('#mobileList');
         tbody.empty();
         summaryBody.empty();
+        mobileList.empty();
 
         var colCount = 3 + TIME_SLOTS.length; // Sr No + Name + Email + slots
 
         if (list.length === 0) {
           tbody.append('<tr><td colspan="' + colCount + '" class="text-muted">No configured users in config/users.xml.</td></tr>');
+          mobileList.append('<div class="text-muted">No configured users in config/users.xml.</div>');
         } else {
           list.forEach(function(item, index) {
             var email = item.email || '';
@@ -197,6 +200,16 @@
               summaryRow += '<td colspan="2" class="text-danger">' + error + '</td>';
               summaryRow += '</tr>';
               summaryBody.append(summaryRow);
+
+              // Mobile card with error
+              var cardError = '<div class="card mb-2">';
+              cardError += '<div class="card-header p-2">';
+              cardError += '<div><strong>' + (name || email || '—') + '</strong></div>';
+              cardError += '<div class="small text-muted">' + (email || '—') + '</div>';
+              cardError += '</div>';
+              cardError += '<div class="card-body p-2"><div class="text-danger small">' + error + '</div></div>';
+              cardError += '</div>';
+              mobileList.append(cardError);
               return;
             }
 
@@ -228,6 +241,55 @@
             summaryRowOk += '<td>' + bf.freeText + '</td>';
             summaryRowOk += '</tr>';
             summaryBody.append(summaryRowOk);
+
+            // Mobile accordion card with busy events list only
+            var cardId = 'mobileUserBody' + index;
+            var headerId = 'mobileUserHeader' + index;
+            var card = '<div class="card mb-2">';
+            card += '<div class="card-header p-2" id="' + headerId + '">';
+            // Make only the name/email area toggle the collapse, not the whole card body.
+            card += '<button class="btn btn-link text-left p-0 mobile-card-toggle" type="button" data-toggle="collapse" data-target="#' + cardId + '" aria-expanded="false" aria-controls="' + cardId + '">';
+            card += '<div><strong>' + (name || email || '—') + '</strong></div>';
+            card += '<div class="small text-muted">' + (email || '—') + '</div>';
+            card += '</button>';
+            card += '</div>';
+            card += '<div id="' + cardId + '" class="collapse" aria-labelledby="' + headerId + '">';
+            card += '<div class="card-body p-2">';
+
+            if (!events || events.length === 0) {
+              card += '<div class="text-muted small mb-2">No events</div>';
+            } else {
+              card += '<ul class="list-unstyled mb-2">';
+              events.forEach(function(ev) {
+                var timeStr;
+                if (ev.allDay) {
+                  timeStr = 'All day';
+                } else if (ev.start && ev.end) {
+                  timeStr = formatTime(ev.start) + ' – ' + formatTime(ev.end);
+                } else {
+                  timeStr = '';
+                }
+                var creator = ev.creator ? ('created by ' + ev.creator) : '';
+                var label = (ev.summary || '(No title)');
+                card += '<li class="mb-1">';
+                if (timeStr) {
+                  card += '<div><strong>' + timeStr + '</strong></div>';
+                }
+                card += '<div>' + label + '</div>';
+                if (creator) {
+                  card += '<div class="small text-muted">' + creator + '</div>';
+                }
+                card += '</li>';
+              });
+              card += '</ul>';
+            }
+
+            if (email) {
+              card += '<a href="' + baseUrl + '/admin/calendar/detail?email=' + encodeURIComponent(email) + '" class="small">View month</a>';
+            }
+
+            card += '</div></div></div>';
+            mobileList.append(card);
           });
         }
         $('#eventsContainer').show();

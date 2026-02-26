@@ -44,8 +44,13 @@
         <p class="mt-2 mb-0">Loading calendar…</p>
       </div>
       <div id="monthError" class="alert alert-danger" style="display:none;"></div>
-      <div id="monthContainer" style="display:none;">
+      <!-- Desktop: month grid -->
+      <div id="monthContainerDesktop" class="d-none d-md-block" style="display:none;">
         <div id="calendarGrid" class="calendar-month-grid"></div>
+      </div>
+      <!-- Mobile: date + events list for readability -->
+      <div id="monthContainerMobile" class="d-block d-md-none" style="display:none; max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+        <div id="mobileMonthList"></div>
       </div>
     </div>
   </div>
@@ -60,4 +65,12 @@
   .calendar-month-grid .day-events { list-style: none; padding: 0; margin: 0; }
   .calendar-month-grid .day-events li { padding: 2px 4px; margin-bottom: 2px; background: #e7f1ff; border-left: 3px solid #0d6efd; border-radius: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; }
   .calendar-month-grid .day-events li.all-day { background: #d4edda; border-left-color: #28a745; }
+
+  /* Mobile month list */
+  #mobileMonthList .mobile-day-card { border: 1px solid #dee2e6; border-radius: 4px; margin-bottom: 0.75rem; background: #fff; }
+  #mobileMonthList .mobile-day-header { padding: 0.5rem 0.75rem; background: #f8f9fa; border-bottom: 1px solid #dee2e6; font-weight: 600; font-size: 0.9rem; }
+  #mobileMonthList .mobile-day-body { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+  #mobileMonthList .mobile-event { margin-bottom: 0.5rem; }
+  #mobileMonthList .mobile-event-time { font-weight: 600; }
+  #mobileMonthList .mobile-event-meta { font-size: 0.75rem; color: #6c757d; }
 </style>

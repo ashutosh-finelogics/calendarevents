@@ -83,16 +83,69 @@
     return html;
   }
 
+  function buildMobileMonthList(eventsByDate) {
+    var html = '';
+    var y = currentYear;
+    var m = currentMonth - 1;
+    var last = new Date(y, m + 1, 0);
+    var lastDay = last.getDate();
+    var hasAny = false;
+
+    for (var day = 1; day <= lastDay; day++) {
+      var key = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+      var list = eventsByDate[key] || [];
+      if (!list.length) continue;
+      hasAny = true;
+      var d = new Date(key + 'T12:00:00');
+      var label = d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      html += '<div class="mobile-day-card" id="mobile-day-' + key + '">';
+      html += '<div class="mobile-day-header">' + label + '</div>';
+      html += '<div class="mobile-day-body">';
+      list.forEach(function(ev) {
+        var timeStr;
+        if (ev.allDay) {
+          timeStr = 'All day';
+        } else if (ev.start && ev.end) {
+          timeStr = formatTime(ev.start) + ' – ' + formatTime(ev.end);
+        } else {
+          timeStr = '';
+        }
+        var title = ev.summary || '(No title)';
+        var metaParts = [];
+        if (ev.location) metaParts.push(ev.location);
+        if (ev.creator) metaParts.push('created by ' + ev.creator);
+        var meta = metaParts.join(' | ');
+        html += '<div class="mobile-event">';
+        if (timeStr) {
+          html += '<div class="mobile-event-time">' + timeStr + '</div>';
+        }
+        html += '<div>' + title + '</div>';
+        if (meta) {
+          html += '<div class="mobile-event-meta">' + meta + '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    if (!hasAny) {
+      return '<div class="text-muted small">No events for this month.</div>';
+    }
+    return html;
+  }
+
   function loadMonthEvents() {
     if (!userEmail) {
       $('#monthPlaceholder').hide();
-      $('#monthContainer').hide();
+      $('#monthContainerDesktop').hide();
+      $('#monthContainerMobile').hide();
       $('#monthError').text('No user email specified.').show();
       return;
     }
     $('#monthPlaceholder').show();
     $('#monthError').hide();
-    $('#monthContainer').hide();
+    $('#monthContainerDesktop').hide();
+    $('#monthContainerMobile').hide();
     if (typeof window.showGlobalLoader === 'function') window.showGlobalLoader();
 
     $.ajax({
@@ -109,7 +162,8 @@
         try {
           if (res.status !== 'success') {
             $('#monthError').text(res.message || 'Failed to load events').show();
-            $('#monthContainer').hide();
+            $('#monthContainerDesktop').hide();
+            $('#monthContainerMobile').hide();
             return;
           }
           $('#monthError').hide();
@@ -123,16 +177,35 @@
             eventsByDate[key].push(ev);
           });
           $('#calendarGrid').html(buildCalendarGrid(eventsByDate));
-          $('#monthContainer').show();
+          $('#mobileMonthList').html(buildMobileMonthList(eventsByDate));
+          // Desktop calendar stays visible only on md+ via its classes.
+          $('#monthContainerDesktop').show();
+          // Mobile list visible on all sizes; CSS handles breakpoint.
+          $('#monthContainerMobile').show();
+
+          // Scroll mobile list to current date if this month is the current month
+          var today = new Date();
+          if (today.getFullYear() === currentYear && (today.getMonth() + 1) === currentMonth) {
+            var todayKey = today.getFullYear() + '-' +
+              String(today.getMonth() + 1).padStart(2, '0') + '-' +
+              String(today.getDate()).padStart(2, '0');
+            var container = document.getElementById('monthContainerMobile');
+            var target = document.getElementById('mobile-day-' + todayKey);
+            if (container && target) {
+              container.scrollTop = target.offsetTop - container.offsetTop;
+            }
+          }
         } catch (err) {
           $('#monthError').text('Failed to display calendar.').show();
-          $('#monthContainer').hide();
+          $('#monthContainerDesktop').hide();
+          $('#monthContainerMobile').hide();
         }
       },
       error: function(xhr) {
         var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Failed to load events';
         $('#monthError').text(msg).show();
-        $('#monthContainer').hide();
+        $('#monthContainerDesktop').hide();
+        $('#monthContainerMobile').hide();
       }
     });
   }

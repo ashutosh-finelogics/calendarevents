@@ -18,7 +18,7 @@
       <button type="button" class="btn btn-outline-secondary mr-1" id="prevDayBtn">← Previous day</button>
       <button type="button" class="btn btn-outline-secondary" id="nextDayBtn">Next day →</button>
     </div>
-    <div class="col-md-4 d-flex align-items-end justify-content-md-end mt-3 mt-md-0">
+    <div class="col-md-4 d-none d-md-flex align-items-end justify-content-md-end mt-3 mt-md-0">
       <div class="btn-group btn-group-sm" role="group" aria-label="View toggle">
         <button type="button" class="btn btn-primary" id="viewSlotsBtn">Time slots</button>
         <button type="button" class="btn btn-outline-secondary" id="viewSummaryBtn">Busy / free</button>
@@ -35,7 +35,15 @@
       <div id="eventsError" class="alert alert-danger" style="display:none;"></div>
       <div id="eventsContainer" style="display:none;">
         <h5 class="mb-2">Events for <span id="eventsDateLabel"></span></h5>
-        <div class="calendar-table-scroll border rounded p-2" id="slotView" style="max-height: 70vh; overflow: auto; -webkit-overflow-scrolling: touch;">
+
+        <!-- Mobile-first accordion list (shown on small screens) -->
+        <div class="d-block d-md-none" id="mobileListContainer" style="max-height: 70vh; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+          <div id="mobileList"></div>
+        </div>
+
+        <!-- Desktop views: slot grid and busy/free summary -->
+        <div class="d-none d-md-block">
+          <div class="calendar-table-scroll border rounded p-2" id="slotView" style="max-height: 70vh; overflow: auto; -webkit-overflow-scrolling: touch;">
           <script>
             window.CALENDAR_TIME_SLOTS = <%- slotConfigJson %>;
           </script>
@@ -53,21 +61,22 @@
             <tbody id="eventsTableBody">
             </tbody>
           </table>
-        </div>
-        <div class="calendar-table-scroll border rounded p-2" id="summaryView" style="max-height: 70vh; overflow: auto; -webkit-overflow-scrolling: touch; display: none;">
-          <table class="table table-bordered table-sm mb-0 calendar-slot-table">
-            <thead class="thead-light">
-              <tr>
-                <th class="calendar-col-sr">Sr. No</th>
-                <th class="calendar-col-name">Employee Name</th>
-                <th class="calendar-col-email">Email</th>
-                <th style="min-width: 260px;">Busy events</th>
-                <th style="min-width: 260px;">Free slots</th>
-              </tr>
-            </thead>
-            <tbody id="summaryTableBody">
-            </tbody>
-          </table>
+          </div>
+          <div class="calendar-table-scroll border rounded p-2" id="summaryView" style="max-height: 70vh; overflow: auto; -webkit-overflow-scrolling: touch; display: none;">
+            <table class="table table-bordered table-sm mb-0 calendar-slot-table">
+              <thead class="thead-light">
+                <tr>
+                  <th class="calendar-col-sr">Sr. No</th>
+                  <th class="calendar-col-name">Employee Name</th>
+                  <th class="calendar-col-email">Email</th>
+                  <th style="min-width: 260px;">Busy events</th>
+                  <th style="min-width: 260px;">Free slots</th>
+                </tr>
+              </thead>
+              <tbody id="summaryTableBody">
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

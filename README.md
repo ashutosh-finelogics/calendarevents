@@ -200,6 +200,10 @@ URL: `/admin/calendar/page`
 
 #### 4.2 Busy / free view (toggle)
 
+> **Note on mobile vs desktop**
+> - Desktop uses tables (time-slot grid + busy/free).
+> - Mobile automatically switches to an accordion/list view per employee for readability.
+
 - Activated by clicking `Busy / free` button (JS toggles visibility)
 - Table layout:
   - Sticky left columns:
@@ -222,6 +226,8 @@ URL: `/admin/calendar/page`
 
 ### 5. Detail page – month view
 
+**Desktop** shows a full month grid (7×6). **Mobile** shows a scrollable date + events list per day so that long titles and times are fully readable.
+
 URL: `/admin/calendar/detail?email=...`
 
 - Month grid (7 columns by 6 weeks)
@@ -235,6 +241,8 @@ URL: `/admin/calendar/detail?email=...`
 ---
 
 ### 6. How to run locally
+
+> **Cache busting tip:** when you change frontend JS, bump the version in `controllers/admin/calendar.js` (e.g. `/page.js?v=2`, `/detail.js?v=2`) so mobile browsers fetch the latest scripts.
 
 1. **Install Node.js** (LTS recommended).
 2. **Install dependencies**:
@@ -287,6 +295,24 @@ URL: `/admin/calendar/detail?email=...`
   - Both the grid columns and the “free slots” text will follow automatically
 
 Keep this README open when making changes; most questions about “where is X?” or “why is Y not showing?” are answered in sections 2–4 above.
+
+---
+
+### 8. Mobile shortcut (Add to Home Screen)
+
+The app exposes a basic Web App Manifest at `/manifest.webmanifest` so users can pin it to their mobile home screen.
+
+- **Android (Chrome):**
+  - Visit the app (e.g. `https://calendarevents.indiaontrack.in/admin/calendar/page`).
+  - Open the browser menu → `Add to Home screen` or `Install app`.
+  - A shortcut icon will appear; launching it opens the app in a standalone window.
+
+- **iOS (Safari):**
+  - Open the same URL.
+  - Tap the **Share** button → `Add to Home Screen`.
+  - A home-screen icon is created; tapping it opens the app like a standalone app.
+
+You can customize the manifest (app name, icons, start URL) in `public/manifest.webmanifest`.
 
 # Calendar Tracking – Workspace Integration & Project Guide
 
